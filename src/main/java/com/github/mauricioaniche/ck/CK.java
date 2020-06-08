@@ -81,6 +81,32 @@ public class CK {
 		log.info("Finished parsing");
     }
 
+	public void calculateWithGivenFiles(String path, String[] javaFiles, CKNotifier notifier) {
+		String[] srcDirs = FileUtils.getAllDirs(path);
+		log.info("Found " + javaFiles.length + " java files");
+
+		MetricsExecutor storage = new MetricsExecutor(classLevelMetrics, methodLevelMetrics, notifier);
+
+		List<List<String>> partitions = Lists.partition(Arrays.asList(javaFiles), maxAtOnce);
+		log.debug("Max partition size: " + maxAtOnce + ", total partitions=" + partitions.size());
+
+		for(List<String> partition : partitions) {
+			log.debug("Next partition");
+			ASTParser parser = ASTParser.newParser(AST.JLS11);
+
+			parser.setResolveBindings(true);
+			parser.setBindingsRecovery(true);
+
+			Map<String, String> options = JavaCore.getOptions();
+			JavaCore.setComplianceOptions(JavaCore.VERSION_11, options);
+			parser.setCompilerOptions(options);
+			parser.setEnvironment(null, srcDirs, null, true);
+			parser.createASTs(partition.toArray(new String[partition.size()]), null, new String[0], storage, null);
+		}
+
+		log.info("Finished parsing");
+	}
+
 	private int getMaxPartitionBasedOnMemory() {
 		long maxMemory= Runtime.getRuntime().maxMemory() / (1 << 20); // in MiB
 
